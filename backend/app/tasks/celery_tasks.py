@@ -1,18 +1,22 @@
-from app import celery_app, create_app
-from app.services.backup_service import BackupService
-from app.services.replication_service import ReplicationService
-from app.models.base_datos import BaseDatos
-from app.models.servidor import Servidor
-from app.models.log import Log
-from app.utils.crypto import descifrar
-from app import db
+from app import celery_app, db
 
-app = create_app()
+# Lazy Flask app — evita circular import
+_app_instance = None
+
+def _get_app():
+    global _app_instance
+    if _app_instance is None:
+        from app import create_app
+        _app_instance = create_app()
+    return _app_instance
 
 
 @celery_app.task(bind=True, max_retries=3)
 def ejecutar_backup_programado(self, id_bd: int, output_dir: str = None, formato: str = "custom"):
+    app = _get_app()
     with app.app_context():
+        from app.models.base_datos import BaseDatos
+        from app.services.backup_service import BackupService
         bd = BaseDatos.query.get(id_bd)
         if not bd:
             return {"ok": False, "error": "Base de datos no encontrada"}
@@ -22,7 +26,11 @@ def ejecutar_backup_programado(self, id_bd: int, output_dir: str = None, formato
 
 @celery_app.task(bind=True, max_retries=3)
 def ejecutar_replica_programada(self, origen_id: int, destino_id: int, tipo: str = "COMPLETA"):
+    app = _get_app()
     with app.app_context():
+        from app.models.base_datos import BaseDatos
+        from app.services.replication_service import ReplicationService
+        from app.utils.crypto import descifrar
         origen = BaseDatos.query.get(origen_id)
         destino = BaseDatos.query.get(destino_id)
         if not origen or not destino:
@@ -48,8 +56,10 @@ def ejecutar_replica_programada(self, origen_id: int, destino_id: int, tipo: str
 
 @celery_app.task
 def verificar_backups_pendientes():
+    app = _get_app()
     with app.app_context():
         from app.models.backup import Backup
+        from app.models.log import Log
         from app.utils.hash_utils import verificar_backup
 
         backups = Backup.query.filter(
@@ -76,6 +86,7 @@ def verificar_backups_pendientes():
 
 @celery_app.task
 def limpiar_logs_viejos(dias: int = 30):
+    app = _get_app()
     with app.app_context():
         from datetime import datetime, timedelta
         from app.models.log import Log
@@ -88,6 +99,7 @@ def limpiar_logs_viejos(dias: int = 30):
 
 @celery_app.task
 def disparar_programaciones():
+    app = _get_app()
     with app.app_context():
         from app.models.schedule import Schedule
         from app.models.base_datos import BaseDatos

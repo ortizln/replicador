@@ -39,9 +39,7 @@ celery_app.conf.beat_schedule = {
         "schedule": 60.0,
     },
 }
-
-# Registrar tareas en celery worker importando el módulo a nivel raíz
-from app.tasks import celery_tasks  # noqa: F401, E402
+celery_app.conf.imports = ["app.tasks.celery_tasks"]
 
 
 def _seed_default_users():
