@@ -40,6 +40,9 @@ celery_app.conf.beat_schedule = {
     },
 }
 
+# Registrar tareas en celery worker importando el módulo a nivel raíz
+from app.tasks import celery_tasks  # noqa: F401, E402
+
 
 def _seed_default_users():
     from app.models.usuario import Usuario
@@ -99,7 +102,6 @@ def create_app(config_name="default"):
     app.register_blueprint(usuarios.bp)
 
     with app.app_context():
-        from app.tasks import celery_tasks
         db.create_all()
         _migrar_schema()
         _seed_default_users()
