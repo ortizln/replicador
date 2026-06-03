@@ -44,10 +44,16 @@ build_frontend() {
 # ─── Backend (Docker) ───────────────────────────────────────
 build_backend() {
     info "Construyendo e iniciando servicios Docker..."
-    sudo docker compose build
-    sudo docker compose up -d
-    sudo docker compose ps
-    ok "Backend desplegado. Revisa 'docker compose logs -f'"
+    local dc
+    if command -v docker-compose &>/dev/null; then
+        dc="docker-compose"
+    else
+        dc="docker compose"
+    fi
+    sudo $dc build
+    sudo $dc up -d
+    sudo $dc ps
+    ok "Backend desplegado. Revisa '$dc logs -f'"
 }
 
 # ─── Nginx ──────────────────────────────────────────────────
