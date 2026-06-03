@@ -25,10 +25,10 @@ err()   { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 # ─── Frontend ───────────────────────────────────────────────
 build_frontend() {
-    info "Compilando frontend Angular..."
+    info "Compilando frontend Angular (baseHref=/replicador/)..."
     cd "$FRONTEND_DIR"
     npm ci || npm install
-    npx ng build --configuration production --output-path dist
+    npx ng build --configuration production
     cd ..
 
     if [ ! -d "$FRONTEND_DIR/dist" ]; then
@@ -67,9 +67,21 @@ setup_nginx() {
     sudo nginx -t || err "Configuración de nginx inválida"
     sudo systemctl reload nginx || sudo systemctl restart nginx
 
-    ok "Nginx configurado con subdominios:"
-    echo "  - http://app.${APP_NAME}.tudominio.com  → Frontend Angular"
-    echo "  - http://api.${APP_NAME}.tudominio.com  → API Flask"
+    ok "Nginx configurado con ruta /${APP_NAME}:"
+    echo "  - https://tudominio.com/${APP_NAME}        → Frontend Angular"
+    echo "  - https://tudominio.com/${APP_NAME}/api    → API Flask"
+}
+
+setup_ssl() {
+    if ! command -v certbot &>/dev/null; then
+        err "certbot no instalado. Ejecuta: sudo apt install certbot python3-certbot-nginx"
+    fi
+
+    info "Solicitando certificados SSL..."
+    sudo certbot --nginx --non-interactive --agree-tos -m admin@tudominio.com || {
+        sudo certbot --nginx
+    }
+    ok "SSL configurado"
 }
 
 # ─── SSL con Certbot ────────────────────────────────────────
@@ -109,10 +121,10 @@ case "${1:-all}" in
     *)
         echo "Uso: $0 [frontend|backend|nginx|ssl|all]"
         echo ""
-        echo "  frontend  → Compila Angular y copia a ${DEPLOY_DIR}"
+        echo "  frontend  → Compila Angular (baseHref=/replicador/) y copia a ${DEPLOY_DIR}"
         echo "  backend   → Build & up con docker compose"
-        echo "  nginx     → Instala config de subdominios"
-        echo "  ssl       → Certbot SSL para los subdominios"
+        echo "  nginx     → Instala config bajo /replicador"
+        echo "  ssl       → Certbot SSL para el dominio"
         echo "  all       → Ejecuta todo lo anterior"
         exit 1
         ;;

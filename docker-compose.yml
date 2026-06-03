@@ -60,5 +60,4 @@ services:
         condition: service_healthy
 
 volumes:
-  pgdata:
   backups:

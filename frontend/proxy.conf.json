@@ -1,7 +1,14 @@
 {
-  "/api": {
+  "/replicador/api": {
     "target": "http://localhost:5000",
     "secure": false,
-    "changeOrigin": true
+    "changeOrigin": true,
+    "pathRewrite": { "^/replicador/api": "/api" }
+  },
+  "/replicador": {
+    "target": "http://localhost:4200",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": { "^/replicador": "" }
   }
 }

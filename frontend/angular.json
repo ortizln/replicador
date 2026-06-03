@@ -15,6 +15,7 @@
             "outputPath": "dist",
             "index": "src/index.html",
             "main": "src/main.ts",
+            "baseHref": "/replicador/",
             "tsConfig": "tsconfig.json",
             "polyfills": ["zone.js"],
             "styles": [
