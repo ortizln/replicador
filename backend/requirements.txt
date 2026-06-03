@@ -1,0 +1,15 @@
+flask==3.1.*
+flask-sqlalchemy==3.1.*
+flask-migrate==4.1.*
+flask-jwt-extended==4.7.*
+flask-cors==5.0.*
+celery[redis]==5.5.*
+redis==5.3.*
+psycopg2-binary==2.9.*
+cryptography==44.*
+requests==2.32.*
+python-dotenv==1.1.*
+gunicorn==23.*
+apscheduler==3.11.*
+boto3==1.37.*
+paramiko==3.5.*

@@ -1,0 +1,46 @@
+# Python - Entornos virtuales y caché
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Node / Angular - Dependencias y compilación
+node_modules/
+**/node_modules/
+/dist/
+**/dist/
+/.angular/
+**/.angular/
+/.webpack/
+/out-tsc/
+.eslintcache
+
+# Logs e informes
+*.log
+logs/
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Respaldos y Volcados de Base de Datos (Dumps)
+dumps/
+**/dumps/
+*.dump
+*.sql
+
+# Archivos de configuración local y credenciales (Sensible)
+.env
+.env.*
+!.env.example
+
+# IDEs y Editores de código
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
