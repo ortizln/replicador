@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
     env_file: backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:086411421@192.168.100.216:5432/replicador_platform
+      DATABASE_URL: postgresql://postgres:086411421@192.168.100.215:5432/replicador_platform
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     ports:
@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
     env_file: backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:086411421@192.168.100.216:5432/replicador_platform
+      DATABASE_URL: postgresql://postgres:086411421@192.168.100.215:5432/replicador_platform
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     command: celery -A app.celery_app worker --loglevel=info
@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
     env_file: backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:086411421@192.168.100.216:5432/replicador_platform
+      DATABASE_URL: postgresql://postgres:086411421@192.168.100.215:5432/replicador_platform
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     command: celery -A app.celery_app beat --loglevel=info
