@@ -32,9 +32,9 @@ dumps/
 *.sql
 
 # Archivos de configuración local y credenciales (Sensible)
-.env
-.env.*
-!.env.example
+#.env
+#.env.*
+#!.env.example
 
 # IDEs y Editores de código
 .idea/
