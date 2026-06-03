@@ -77,14 +77,14 @@ def crear():
     compresion = data.get("compresion")
 
     def run():
-        with db.session.begin():
-            resultado = BackupService.generar_dump(bd, output_dir, formato, compresion, usuario)
-            if resultado.get("ok"):
-                db.session.add(Auditoria(
-                    usuario=usuario, accion="Ejecutó backup",
-                    entidad="backups", entidad_id=resultado.get("backup_id"),
-                    detalle=f"bd={bd.nombre_bd}, archivo={resultado.get('archivo','')}"
-                ))
+        resultado = BackupService.generar_dump(bd, output_dir, formato, compresion, usuario)
+        if resultado.get("ok"):
+            db.session.add(Auditoria(
+                usuario=usuario, accion="Ejecutó backup",
+                entidad="backups", entidad_id=resultado.get("backup_id"),
+                detalle=f"bd={bd.nombre_bd}, archivo={resultado.get('archivo','')}"
+            ))
+            db.session.commit()
 
     async_operation("BACKUP", f"Backup: {bd.nombre_bd}", run)
     return jsonify({"ok": True, "mensaje": f"Backup de {bd.nombre_bd} iniciado en segundo plano"}), 202
