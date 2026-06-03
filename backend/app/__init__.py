@@ -57,11 +57,19 @@ def _seed_default_users():
 def _migrar_schema():
     import sqlalchemy as sa
     insp = sa.inspect(db.engine)
+
+    # horarios
     cols = [c["name"] for c in insp.get_columns("horarios")]
     if "ejecutando" not in cols:
         db.session.execute(sa.text("ALTER TABLE horarios ADD COLUMN ejecutando BOOLEAN DEFAULT FALSE"))
     if "ultimo_resultado" not in cols:
         db.session.execute(sa.text("ALTER TABLE horarios ADD COLUMN ultimo_resultado VARCHAR(50)"))
+
+    # configuracion
+    cols = [c["name"] for c in insp.get_columns("configuracion")]
+    if "updated_at" not in cols:
+        db.session.execute(sa.text("ALTER TABLE configuracion ADD COLUMN updated_at TIMESTAMP DEFAULT NOW()"))
+
     db.session.commit()
 
 
