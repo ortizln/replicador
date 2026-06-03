@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 import { DashboardResumen } from '../../models';
 
@@ -6,6 +6,13 @@ import { DashboardResumen } from '../../models';
   selector: 'app-dashboard',
   template: `
     <div class="dashboard">
+      <!-- Running Tasks Alert -->
+      <div *ngIf="tareasActivas.length > 0" class="alert alert-warning d-flex align-items-center gap-2 mb-3 py-2 px-3">
+        <span class="spinner-border spinner-border-sm"></span>
+        <span class="fw-semibold small">{{ tareasActivas.length }} tarea(s) en ejecución:</span>
+        <span class="small">{{ tareasActivas[0].descripcion }}{{ tareasActivas.length > 1 ? ' (+' + (tareasActivas.length-1) + ' más)' : '' }}</span>
+      </div>
+
       <!-- KPI Cards -->
       <div class="row g-3 mb-4">
         <div class="col-xl-3 col-md-6">
@@ -39,6 +46,26 @@ import { DashboardResumen } from '../../models';
       </div>
 
       <div class="row g-3">
+        <!-- Tareas en ejecución -->
+        <div class="col-lg-4">
+          <div class="card h-100">
+            <div class="card-header">⚡ Tareas en Segundo Plano</div>
+            <div class="card-body">
+              <div *ngIf="tareasActivas.length === 0" class="empty-state py-4">
+                <div class="empty-icon mb-2">✅</div>
+                <p class="mb-0 small">No hay tareas en ejecución</p>
+              </div>
+              <div *ngFor="let t of tareasActivas" class="d-flex align-items-center gap-2 mb-2 py-1 border-bottom">
+                <span class="spinner-border spinner-border-sm text-warning"></span>
+                <div class="flex-grow-1">
+                  <div class="small fw-semibold">{{ t.descripcion }}</div>
+                  <div class="small text-muted">{{ t.tipo }} · {{ t.inicio | date:'HH:mm:ss' }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Último Backup -->
         <div class="col-lg-4">
           <div class="card h-100">
@@ -84,49 +111,29 @@ import { DashboardResumen } from '../../models';
             </div>
           </div>
         </div>
-
-        <!-- Última Restauración -->
-        <div class="col-lg-4">
-          <div class="card h-100">
-            <div class="card-header">⏪ Última Restauración</div>
-            <div class="card-body">
-              <ng-container *ngIf="data?.ultima_restauracion?.fecha; else noRestore">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <span class="text-muted small">Fecha</span>
-                  <span class="fw-semibold">{{ data?.ultima_restauracion?.fecha | date:'dd/MM/yyyy HH:mm' }}</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <span class="text-muted small">Estado</span>
-                  <span class="badge" [class.badge-status-success]="data?.ultima_restauracion?.estado === 'EXITOSO'"
-                        [class.badge-status-error]="data?.ultima_restauracion?.estado !== 'EXITOSO'">
-                    {{ data?.ultima_restauracion?.estado || 'N/A' }}
-                  </span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                  <span class="text-muted small">ID</span>
-                  <span class="fw-semibold">#{{ data?.ultima_restauracion?.id || '-' }}</span>
-                </div>
-              </ng-container>
-              <ng-template #noRestore>
-                <div class="empty-state py-4">
-                  <div class="empty-icon mb-2">📭</div>
-                  <p class="mb-0 small">No hay restauraciones registradas</p>
-                </div>
-              </ng-template>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   `
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   data?: DashboardResumen;
+  tareasActivas: any[] = [];
+  private pollTimer: any = null;
 
   constructor(private api: ApiService) {}
 
   ngOnInit() {
     this.api.getDashboard().subscribe(d => this.data = d);
+    this.pollStatus();
+    this.pollTimer = setInterval(() => this.pollStatus(), 5000);
+  }
+
+  ngOnDestroy() {
+    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+  }
+
+  private pollStatus() {
+    this.api.getStatusActual().subscribe(t => this.tareasActivas = t);
   }
 
   formatBytes(bytes: number): string {

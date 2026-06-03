@@ -69,6 +69,9 @@ export class ApiService {
   transferirBackup(id: number, data: any): Observable<any> {
     return this.http.post(`${environment.apiUrl}/backups/${id}/transferir`, data);
   }
+  subirBackup(formData: FormData): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/backups/upload`, formData);
+  }
   eliminarBackup(id: number): Observable<any> {
     return this.http.delete(`${environment.apiUrl}/backups/${id}`);
   }

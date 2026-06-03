@@ -44,13 +44,15 @@ class TransferService:
             db.session.commit()
             return {"ok": True}
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr[:500] if e.stderr else str(e)
+            _escanear_error(stderr, "SCP", archivo_local, servidor_destino['host'])
             db.session.add(Log(
                 nivel="ERROR", servicio="TRANSFER",
                 mensaje=f"SCP falló {archivo_local} -> {servidor_destino['host']}",
-                detalle=str(e)
+                detalle=stderr
             ))
             db.session.commit()
-            return {"ok": False, "error": str(e)}
+            return {"ok": False, "error": stderr}
 
     @staticmethod
     def transferir_sftp(archivo_local: str, servidor_destino: dict, ruta_remota: str = None) -> dict:
@@ -71,9 +73,10 @@ class TransferService:
             db.session.commit()
             return {"ok": True}
         except Exception as e:
+            _escanear_error(str(e), "SFTP", archivo_local, servidor_destino.get("host", "?"))
             db.session.add(Log(
                 nivel="ERROR", servicio="TRANSFER",
-                mensaje=f"SFTP falló {archivo_local} -> {servidor_destino['host']}",
+                mensaje=f"SFTP falló {archivo_local} -> {servidor_destino.get('host','?')}",
                 detalle=str(e)
             ))
             db.session.commit()
@@ -97,13 +100,15 @@ class TransferService:
             db.session.commit()
             return {"ok": True}
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr[:500] if e.stderr else str(e)
+            _escanear_error(stderr, "RSYNC", archivo_local, servidor_destino['host'])
             db.session.add(Log(
                 nivel="ERROR", servicio="TRANSFER",
                 mensaje=f"Rsync falló {archivo_local} -> {servidor_destino['host']}",
-                detalle=str(e)
+                detalle=stderr
             ))
             db.session.commit()
-            return {"ok": False, "error": str(e)}
+            return {"ok": False, "error": stderr}
 
     @staticmethod
     def transferir_s3(archivo_local: str, bucket: str, clave_s3: str = None, endpoint_url: str = None) -> dict:
@@ -149,6 +154,7 @@ class TransferService:
             db.session.commit()
             return {"ok": True}
         except Exception as e:
+            _escanear_error(str(e), "FTP", archivo_local, host)
             db.session.add(Log(
                 nivel="ERROR", servicio="TRANSFER",
                 mensaje=f"FTP falló {archivo_local} -> {host}",
@@ -156,3 +162,30 @@ class TransferService:
             ))
             db.session.commit()
             return {"ok": False, "error": str(e)}
+
+
+def _escanear_error(stderr: str, servicio: str, archivo: str, host: str):
+    import re
+    errores_permiso = [
+        (r"Permission denied", "Permiso denegado — revisa credenciales SSH"),
+        (r"not a regular file", "No es un archivo regular — revisa la ruta"),
+        (r"No such file", "Ruta no encontrada en el servidor destino"),
+        (r"Connection refused", "Conexión rechazada — ¿el servidor SSH está corriendo?"),
+        (r"Connection timed out", "Timeout de conexión — revisa firewall/host"),
+        (r"Could not resolve hostname", "Hostname no resuelve — revisa el nombre del servidor"),
+        (r"lost connection", "Conexión perdida durante la transferencia"),
+        (r"Authentication failed", "Autenticación SSH fallida"),
+        (r"Permission denied \(publickey", "Autenticación con llave pública fallida"),
+        (r"mkdir.*Permission denied", "No hay permisos de escritura en el directorio destino"),
+        (r"cannot remove", "No hay permisos para sobrescribir archivo en destino"),
+        (r"Broken pipe", "Conexión interrumpida durante la transferencia"),
+    ]
+    for patron, mensaje in errores_permiso:
+        if re.search(patron, stderr, re.IGNORECASE):
+            db.session.add(Log(
+                nivel="WARN", servicio=servicio, codigo="PERMISO",
+                mensaje=f"{mensaje}: {host}",
+                detalle=f"archivo={archivo}, host={host}"
+            ))
+            db.session.commit()
+            return

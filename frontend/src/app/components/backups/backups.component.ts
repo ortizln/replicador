@@ -13,6 +13,7 @@ import { confirmDialog } from '../../utils/swal';
           <input type="text" class="form-control" placeholder="Buscar backups..." [(ngModel)]="filtro" (input)="cargar()">
         </div>
         <button class="btn btn-primary" (click)="abrirFormEjecutar()">▶ Ejecutar Backup</button>
+        <button class="btn btn-outline-primary" (click)="abrirFormSubir()">📤 Cargar Backup</button>
       </div>
 
       <div class="table-responsive">
@@ -218,6 +219,55 @@ import { confirmDialog } from '../../utils/swal';
         </div>
       </div>
     </div>
+
+    <!-- Upload Modal -->
+    <div class="modal fade" id="uploadModal" tabindex="-1" data-bs-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">📤 Cargar Backup Manual</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Base de Datos</label>
+              <select class="form-select" [(ngModel)]="uploadForm.id_bd">
+                <option value="">Seleccionar...</option>
+                <option *ngFor="let bd of basesDatos" [value]="bd.id">{{ bd.nombre_bd }} ({{ bd.motor }})</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Archivo de respaldo</label>
+              <input class="form-control" type="file" (change)="onFileSelected($event)" accept=".dump,.sql,.backup,.tar,.gz">
+            </div>
+            <hr>
+            <h6 class="small fw-semibold mb-2">Transferir después de cargar (opcional)</h6>
+            <div class="mb-3">
+              <label class="form-label">Servidor destino</label>
+              <select class="form-select" [(ngModel)]="uploadForm.transferir_a">
+                <option value="">No transferir</option>
+                <option *ngFor="let s of servidores" [value]="s.id">{{ s.nombre }} ({{ s.host }})</option>
+              </select>
+            </div>
+            <div class="mb-3" *ngIf="uploadForm.transferir_a">
+              <label class="form-label">Método</label>
+              <select class="form-select" [(ngModel)]="uploadForm.metodo">
+                <option value="scp">SCP</option>
+                <option value="sftp">SFTP</option>
+                <option value="rsync">Rsync</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary" (click)="subirBackup()" [disabled]="subiendo || !uploadForm.id_bd || !uploadFile">
+              <span *ngIf="subiendo" class="spinner-border spinner-border-sm me-1"></span>
+              {{ subiendo ? 'Subiendo...' : 'Cargar y Guardar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   `
 })
 export class BackupsComponent implements OnInit {
@@ -237,6 +287,9 @@ export class BackupsComponent implements OnInit {
   loading = false;
   ejecutando = false;
   transfiriendo = false;
+  uploadForm: any = { id_bd: '', transferir_a: '', metodo: 'scp' };
+  uploadFile: File | null = null;
+  subiendo = false;
 
   constructor(private api: ApiService) {}
 
@@ -300,6 +353,34 @@ export class BackupsComponent implements OnInit {
     this.api.transferirBackup(this.transferBackup.id, this.transferForm).subscribe({
       next: () => { modal.hide(); this.transfiriendo = false; this.cargar(); },
       error: () => { this.transfiriendo = false; }
+    });
+  }
+
+  abrirFormSubir() {
+    this.uploadForm = { id_bd: '', transferir_a: '', metodo: 'scp' };
+    this.uploadFile = null;
+    this.subiendo = false;
+    new (window as any).bootstrap.Modal(document.getElementById('uploadModal')).show();
+  }
+
+  onFileSelected(event: any) {
+    this.uploadFile = event.target.files?.[0] || null;
+  }
+
+  subirBackup() {
+    if (!this.uploadFile || !this.uploadForm.id_bd) return;
+    this.subiendo = true;
+    const fd = new FormData();
+    fd.append('file', this.uploadFile);
+    fd.append('id_bd', this.uploadForm.id_bd);
+    if (this.uploadForm.transferir_a) {
+      fd.append('transferir_a', this.uploadForm.transferir_a);
+      fd.append('metodo', this.uploadForm.metodo);
+    }
+    const modal = (window as any).bootstrap.Modal.getInstance(document.getElementById('uploadModal'));
+    this.api.subirBackup(fd).subscribe({
+      next: () => { modal.hide(); this.subiendo = false; this.cargar(); },
+      error: () => { this.subiendo = false; }
     });
   }
 

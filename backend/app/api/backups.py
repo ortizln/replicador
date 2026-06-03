@@ -1,13 +1,18 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from werkzeug.utils import secure_filename
+import os
+from datetime import datetime, timezone
 from app import db
 from app.models.backup import Backup
 from app.services.backup_service import BackupService
 from app.services.transfer_service import TransferService
 from app.models.auditoria import Auditoria
+from app.models.log import Log
 from app.utils.pagination import paginar_ordenar
 from app.utils.async_ops import async_operation
 from app.utils.notifications import notificar_transferencia
+from app.utils.hash_utils import calcular_hash_sha256
 
 bp = Blueprint("backups", __name__, url_prefix="/api/backups")
 
@@ -151,3 +156,72 @@ def eliminar(id):
     db.session.delete(b)
     db.session.commit()
     return jsonify({"ok": True})
+
+
+@bp.route("/upload", methods=["POST"])
+@jwt_required()
+def subir_backup():
+    from app.models.base_datos import BaseDatos
+    from app.models.servidor import Servidor
+
+    if "file" not in request.files:
+        return jsonify({"error": "No se envió ningún archivo"}), 400
+    archivo = request.files["file"]
+    if archivo.filename == "":
+        return jsonify({"error": "Nombre de archivo vacío"}), 400
+
+    id_bd = request.form.get("id_bd", type=int)
+    if not id_bd:
+        return jsonify({"error": "id_bd requerido"}), 400
+    bd = BaseDatos.query.get(id_bd)
+    if not bd:
+        return jsonify({"error": "Base de datos no encontrada"}), 404
+
+    backup_dir = os.getenv("BACKUP_DIR", "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    safe_name = secure_filename(archivo.filename) or f"upload_{ts}.dump"
+    dest = os.path.join(backup_dir, f"{ts}_{safe_name}")
+    archivo.save(dest)
+
+    peso = os.path.getsize(dest)
+    hash_val = calcular_hash_sha256(dest)
+    usuario = get_jwt_identity()
+
+    ext = os.path.splitext(safe_name)[1].lower()
+    fmt = {"dump": "custom", "sql": "plain", "tar": "tar", "backup": "custom"}.get(ext.lstrip("."), "custom")
+
+    backup = Backup(
+        id_bd=id_bd, archivo=dest, peso_bytes=peso,
+        hash_sha256=hash_val, hash_verificado=True,
+        estado="EXITOSO", formato=fmt, usuario=usuario,
+    )
+    db.session.add(backup)
+    db.session.add(Log(
+        nivel="INFO", servicio="BACKUP",
+        mensaje=f"Backup subido manualmente: {safe_name}",
+        detalle=f"bd={bd.nombre_bd}, peso={peso}, hash={hash_val}"
+    ))
+    db.session.flush()
+
+    transferir_a = request.form.get("transferir_a", type=int)
+    metodo = request.form.get("metodo", "scp")
+    if transferir_a:
+        serv = Servidor.query.get(transferir_a)
+        if serv:
+            svc = TransferService()
+            fn = {"scp": svc.transferir_scp, "sftp": svc.transferir_sftp, "rsync": svc.transferir_rsync}.get(metodo)
+            if fn:
+                try:
+                    fn(dest, {"host": serv.host, "puerto": serv.puerto,
+                              "usuario_ssh": serv.usuario_ssh, "clave_ssh": serv.clave_ssh,
+                              "ruta_backups": serv.ruta_backups})
+                    backup.transferido = True
+                    backup.destino_externo = f"{metodo}://{serv.nombre}"
+                except Exception as e:
+                    db.session.add(Log(nivel="ERROR", servicio="TRANSFER",
+                                       mensaje=f"Error al transferir {safe_name} a {serv.nombre}",
+                                       detalle=str(e)[:500]))
+
+    db.session.commit()
+    return jsonify({"ok": True, "id": backup.id, "archivo": dest, "peso_bytes": peso, "hash_sha256": hash_val}), 201
