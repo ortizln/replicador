@@ -50,6 +50,10 @@ build_backend() {
     else
         dc="docker compose"
     fi
+
+    # Baja contenedores existentes y libera puertos antes de levantar
+    sudo $dc down --remove-orphans 2>/dev/null || true
+
     sudo $dc build
     sudo $dc up -d
     sudo $dc ps
