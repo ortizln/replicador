@@ -16,13 +16,12 @@ services:
     build: ./backend
     container_name: replicador-api
     restart: unless-stopped
+    network_mode: host
     env_file: backend/.env
     environment:
       DATABASE_URL: postgresql://postgres:086411421@192.168.100.215:5432/replicador_platform
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
-    ports:
-      - "5000:5000"
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/0
     depends_on:
       redis:
         condition: service_healthy
@@ -33,11 +32,12 @@ services:
     build: ./backend
     container_name: replicador-celery
     restart: unless-stopped
+    network_mode: host
     env_file: backend/.env
     environment:
       DATABASE_URL: postgresql://postgres:086411421@192.168.100.215:5432/replicador_platform
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/0
     command: celery -A app.celery_app worker --loglevel=info
     depends_on:
       redis:
@@ -49,11 +49,12 @@ services:
     build: ./backend
     container_name: replicador-beat
     restart: unless-stopped
+    network_mode: host
     env_file: backend/.env
     environment:
       DATABASE_URL: postgresql://postgres:086411421@192.168.100.215:5432/replicador_platform
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/0
     command: celery -A app.celery_app beat --loglevel=info
     depends_on:
       redis:
