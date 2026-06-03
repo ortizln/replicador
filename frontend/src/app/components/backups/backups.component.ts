@@ -152,7 +152,10 @@ import { confirmDialog } from '../../utils/swal';
               <label class="form-label">Base de Datos</label>
               <select class="form-select" [(ngModel)]="formBackup.id_bd">
                 <option value="">Seleccionar...</option>
-                <option *ngFor="let bd of basesDatos" [value]="bd.id">{{ bd.nombre_bd }} ({{ bd.motor }})</option>
+                <option *ngFor="let bd of basesDatos" [value]="bd.id">
+                  <span class="fw-semibold">{{ bd.nombre_bd }}</span>
+                  <small class="text-muted">({{ nombreServidor(bd.id_servidor!) }})</small>
+                </option>
               </select>
             </div>
             <div class="mb-3">
@@ -230,27 +233,18 @@ import { confirmDialog } from '../../utils/swal';
           </div>
           <div class="modal-body">
             <div class="mb-3">
-              <label class="form-label">Base de Datos</label>
-              <select class="form-select" [(ngModel)]="uploadForm.id_bd">
-                <option value="">Seleccionar...</option>
-                <option *ngFor="let bd of basesDatos" [value]="bd.id">{{ bd.nombre_bd }} ({{ bd.motor }})</option>
-              </select>
-            </div>
-            <div class="mb-3">
               <label class="form-label">Archivo de respaldo</label>
               <input class="form-control" type="file" (change)="onFileSelected($event)" accept=".dump,.sql,.backup,.tar,.gz">
             </div>
-            <hr>
-            <h6 class="small fw-semibold mb-2">Transferir después de cargar (opcional)</h6>
             <div class="mb-3">
               <label class="form-label">Servidor destino</label>
-              <select class="form-select" [(ngModel)]="uploadForm.transferir_a">
-                <option value="">No transferir</option>
+              <select class="form-select" [(ngModel)]="uploadForm.id_servidor">
+                <option value="">Seleccionar...</option>
                 <option *ngFor="let s of servidores" [value]="s.id">{{ s.nombre }} ({{ s.host }})</option>
               </select>
             </div>
-            <div class="mb-3" *ngIf="uploadForm.transferir_a">
-              <label class="form-label">Método</label>
+            <div class="mb-3" *ngIf="uploadForm.id_servidor">
+              <label class="form-label">Método de transferencia</label>
               <select class="form-select" [(ngModel)]="uploadForm.metodo">
                 <option value="scp">SCP</option>
                 <option value="sftp">SFTP</option>
@@ -260,9 +254,9 @@ import { confirmDialog } from '../../utils/swal';
           </div>
           <div class="modal-footer">
             <button class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-            <button class="btn btn-primary" (click)="subirBackup()" [disabled]="subiendo || !uploadForm.id_bd || !uploadFile">
+            <button class="btn btn-primary" (click)="subirBackup()" [disabled]="subiendo || !uploadForm.id_servidor || !uploadFile">
               <span *ngIf="subiendo" class="spinner-border spinner-border-sm me-1"></span>
-              {{ subiendo ? 'Subiendo...' : 'Cargar y Guardar' }}
+              {{ subiendo ? 'Subiendo...' : 'Cargar y Transferir' }}
             </button>
           </div>
         </div>
@@ -287,7 +281,7 @@ export class BackupsComponent implements OnInit {
   loading = false;
   ejecutando = false;
   transfiriendo = false;
-  uploadForm: any = { id_bd: '', transferir_a: '', metodo: 'scp' };
+  uploadForm: any = { id_servidor: '', metodo: 'scp' };
   uploadFile: File | null = null;
   subiendo = false;
 
@@ -357,7 +351,7 @@ export class BackupsComponent implements OnInit {
   }
 
   abrirFormSubir() {
-    this.uploadForm = { id_bd: '', transferir_a: '', metodo: 'scp' };
+    this.uploadForm = { id_servidor: '', metodo: 'scp' };
     this.uploadFile = null;
     this.subiendo = false;
     new (window as any).bootstrap.Modal(document.getElementById('uploadModal')).show();
@@ -368,15 +362,15 @@ export class BackupsComponent implements OnInit {
   }
 
   subirBackup() {
-    if (!this.uploadFile || !this.uploadForm.id_bd) return;
+    if (!this.uploadFile || !this.uploadForm.id_servidor) return;
+    const bd = this.basesDatos.find(x => x.id_servidor === this.uploadForm.id_servidor);
+    if (!bd) { alert('El servidor seleccionado no tiene bases de datos asociadas'); return; }
     this.subiendo = true;
     const fd = new FormData();
     fd.append('file', this.uploadFile);
-    fd.append('id_bd', this.uploadForm.id_bd);
-    if (this.uploadForm.transferir_a) {
-      fd.append('transferir_a', this.uploadForm.transferir_a);
-      fd.append('metodo', this.uploadForm.metodo);
-    }
+    fd.append('id_bd', String(bd.id));
+    fd.append('transferir_a', String(this.uploadForm.id_servidor));
+    fd.append('metodo', this.uploadForm.metodo);
     const modal = (window as any).bootstrap.Modal.getInstance(document.getElementById('uploadModal'));
     this.api.subirBackup(fd).subscribe({
       next: () => { modal.hide(); this.subiendo = false; this.cargar(); },
@@ -386,6 +380,11 @@ export class BackupsComponent implements OnInit {
 
   eliminar(id: number) {
     confirmDialog('¿Eliminar este backup?').then(r => { if (r) this.api.eliminarBackup(id).subscribe(() => this.cargar()); });
+  }
+
+  nombreServidor(id: number) {
+    const s = this.servidores.find(x => x.id === id);
+    return s ? s.nombre + ' (' + s.host + ')' : '—';
   }
 
   formatBytes(bytes: number): string {
