@@ -133,7 +133,11 @@ class BackupService:
                 hash_val=hash_file, peso=f"{peso} bytes", usuario=usuario,
             )
 
-            _auto_transferir(backup)
+            try:
+                with db.session.begin():
+                    _auto_transferir(backup)
+            except Exception:
+                pass
 
             return {
                 "ok": True, "backup_id": backup.id, "archivo": str(archivo_final),
