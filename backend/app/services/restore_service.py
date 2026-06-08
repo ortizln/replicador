@@ -63,7 +63,9 @@ class RestoreService:
                         f"--clean --if-exists --no-owner --no-privileges "
                         f"{_quote(archivo)}"
                     )
-                subprocess.run(cmd, shell=True, check=True, env=env, capture_output=True, text=True)
+                result = subprocess.run(cmd, shell=True, check=False, env=env, capture_output=True, text=True)
+                if result.returncode not in (0, 1):
+                    raise subprocess.CalledProcessError(result.returncode, cmd, output=result.stdout, stderr=result.stderr)
 
             elif motor == "mysql":
                 env = os.environ.copy()

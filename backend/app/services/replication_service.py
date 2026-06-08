@@ -47,7 +47,9 @@ class ReplicationService:
                 f"--clean --if-exists --no-owner --no-privileges --jobs=4 "
                 f"{_quote(dump_file)}"
             )
-            result = subprocess.run(restore_cmd, shell=True, check=True, env=env_dst, capture_output=True, text=True)
+            result = subprocess.run(restore_cmd, shell=True, check=False, env=env_dst, capture_output=True, text=True)
+            if result.returncode not in (0, 1):
+                raise subprocess.CalledProcessError(result.returncode, restore_cmd, output=result.stdout, stderr=result.stderr)
 
             duracion = time.time() - t0
 
